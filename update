@@ -3,7 +3,14 @@
 $args = $argv;
 $cmd = array_shift( $args );
 $type = 'all';
-$success = array();
+$results = array(
+	'success'              => array(),
+	'api_fetch_failed'     => array(),
+	'api_no_download_link' => array(),
+	'download_failed'      => array(),
+	'extract_failed'       => array(),
+);
+
 $themes = array();
 if ( !empty( $args[0] ) ) {
 	$type = $args[0];
@@ -75,12 +82,14 @@ if ( $last_revision != $svn_last_revision ) {
 		$response = file_get_contents( $url );
 		if ( $response === false || $response === 'false' ) {
 			echo ' Unable to fetch ' . $theme . "\n";
+			$results['api_fetch_failed'][ $theme ] = $url;
 			continue;
 		}
 
 		$response = json_decode( $response );
 		if ( empty( $response->download_link ) ) {
 			echo ' No download link available for theme ' . $theme . "\n";
+			$results['api_no_download_link'][ $theme ] = var_export( $response, true );
 			continue;
 		}
 
@@ -113,16 +122,25 @@ if ( $last_revision != $svn_last_revision ) {
 
 					$zip->extractTo( 'themes' );
 					$zip->close();
+					$results['success'][] = $theme;
+				}
+				else {
+					echo ' ... extract failed';
+					$results['extract_failed'][ $theme ] = $path . ' (file size: ' . filesize( $path ) . ' bytes)';
 				}
 
 				unlink( $path );
 			}
-			$success[] = $theme;
-		} else {
-			echo '... download failed.';
+		}
+		else {
+			echo ' ... download failed.', "\r\n";
+			echo 'Error no: ', $errno, "\r\n";
+			$results['download_failed'][ $theme ] = 'Error:' . $errno . ' for download url : ' . $response->download_link;
 		}
 		echo "\r\n";
 	}
+
+	log_run_results( $results );
 
 	if ( file_put_contents( $directory . '/.last-revision', $svn_last_revision ) )
 		echo "[CLEANUP] Updated $directory/.last-revision to " . $svn_last_revision . "\r\n";
@@ -135,7 +153,16 @@ $minutes = ( $end_time - $start_time ) / 60;
 $seconds = ( $end_time - $start_time ) % 60;
 
 echo "[SUCCESS] Done updating Themes!\r\n";
-echo "It took " . number_format( $minutes ) . " minute" . ( $minutes == 1 ? '' : 's' ) . " and " . $seconds . " second" . ( $seconds == 1 ? '' : 's' ) . " to update ". count( $success )  ." theme" . ( count( $success ) == 1 ? '' : 's') . "\r\n";
+echo "It took " . number_format( $minutes ) . " minute" . ( $minutes == 1 ? '' : 's' ) . " and " . $seconds . " second" . ( $seconds == 1 ? '' : 's' ) . " to update ". count( $results['success'] )  ." theme" . ( count( $results['success'] ) == 1 ? '' : 's') . "\r\n";
+echo "--------------------------------\r\n";
+echo "[RESULT SUMMARY]\r\n";
+echo 'Downloads attempted  : ', count( $themes ), "\r\n";
+echo 'API fetch failed     : ', count( $results['api_fetch_failed'] ), "\r\n";
+echo 'API no download link : ', count( $results['api_no_download_link'] ), "\r\n";
+echo 'Downloads failed     : ', count( $results['download_failed'] ), "\r\n";
+echo 'Zip extract failed   : ', count( $results['extract_failed'] ), "\r\n";
+echo 'Succesfully updated  : ', count( $results['success'] ), "\r\n";
+echo "--------------------------------\r\n";
 echo "[DONE]\r\n";
 
 /**
@@ -170,4 +197,30 @@ function delete( $file ) {
 		$retval = false;
 
 	return $retval;
+}
+
+
+/**
+ * Create a log file for failed slurps.
+ *
+ * @param array  $results An array of run results.
+ */
+function log_run_results( $results ) {
+	$date = date( 'Y-m-d-H.i.s' );
+
+	unset( $results['success'] );
+	
+	foreach ( $results as $key => $result ) {
+		if ( count( $result ) > 0 ) {
+			$file_content = var_export( $result, true );
+			$filename     = 'logs/' . $date . '_' . $key . '.log';
+			if ( file_put_contents( $filename, $file_content ) ) {
+				echo "[RESULTS] Created $filename with the names of the themes which encountered a failure of the type: $key.\r\n";
+			}
+			else {
+				echo "[ERROR] Could not create $filename.\r\n";
+			}
+			unset( $file_content, $filename );
+		}
+	}
 }
