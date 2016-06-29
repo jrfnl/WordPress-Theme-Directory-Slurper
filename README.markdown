@@ -40,20 +40,20 @@ Your first update will take a while. You'd be well-advised to let it run overnig
 
 ### How much disk space do I need? ###
 
-As of early 2015, it takes up about 3.7GB.
+As of mid 2016, it takes up about 5.6GB.
 
 ### Something went wrong, how do I do a partial update? ###
 
 The last successful update revision number is stored in `themes/.last-revision`. You can just overwrite that and the next `update` will start after that revision.
 
 ### What if I want Plugins instead of Themes? ###
-Check out the [WordPress-Plugin-Directory-Slurper][https://github.com/markjaquith/WordPress-Plugin-Directory-Slurper].
+Check out the [WordPress-Plugin-Directory-Slurper](https://github.com/markjaquith/WordPress-Plugin-Directory-Slurper).
 
 Copyright & License
 -------------------
 Copyright (C) 2015 Aaron Jorbin
 
-Based on [WordPress-Plugin-Directory-Slurper][https://github.com/markjaquith/WordPress-Plugin-Directory-Slurper] which is Copyright (C) 2011 Mark Jaquith
+Based on [WordPress-Plugin-Directory-Slurper](https://github.com/markjaquith/WordPress-Plugin-Directory-Slurper) which is Copyright (C) 2011 Mark Jaquith
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
