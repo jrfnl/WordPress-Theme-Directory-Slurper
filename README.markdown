@@ -8,12 +8,13 @@ Really handy for doing local searches across all WordPress themes.
 
 [repo]: http://wordpress.org/themes/
 
+> This is a Windows compatible version of Aaron Jorbin's [WordPress-Theme-Directory-Slurper](https://github.com/aaronjorbin/WordPress-Theme-Directory-Slurper)
+
 Requirements
 ------------
 
-* PHP 5.2
-* wget
-* Unix system (only tested on Mac OS X)
+* PHP 5.2 with curl
+* SSL certificate bundle
 
 Instructions
 ------------
@@ -22,6 +23,12 @@ Instructions
 2. `./update`
 
 The `theme/` directory will contain all the themes, when the script is done.
+
+In case you run into SSL related issues, you may need to add the below line with the path adjusted to point to a path on your local system.
+See the instructions round line 115.
+```php
+curl_setopt( $ch, CURLOPT_CAINFO, '/path/to/openssl/cacert.pem' )
+```
 
 FAQ
 ----
