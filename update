@@ -1,8 +1,5 @@
 #!/usr/bin/php
 <?php
-require 'Requests-1.6.0/library/Requests.php';
-Requests::register_autoloader();
-
 $args = $argv;
 $cmd = array_shift( $args );
 $type = 'all';
@@ -67,17 +64,24 @@ if ( $last_revision != $svn_last_revision ) {
 
 		$args = ( array(
 			'slug' 	 => $theme ,
-			'fields' => array('sections' => false, 'tags' => false)
+			'fields' => array('sections' => false, 'tags' => false, 'rating' => false, 'downloaded' => false, 'homepage' => false, 'template' => false, 'screenshot_url' => false ),
 		) );
 		$action = 'theme_information';
 		$data = array(
 			'action' => $action,
-			'request' => serialize( (object) $args )
+			'request' => $args,
 		);
-		$r =  Requests::post( 'https://api.wordpress.org/themes/info/1.0/', array(), (object) $data );
-		$response = unserialize( $r->body );
-		if (false === $response ){
-			echo 'Unable to fetch ' . $theme . "\n";
+		
+  		$url = 'https://api.wordpress.org/themes/info/1.1/?' . http_build_query( $data );
+		$response = file_get_contents( $url );
+		if ( $response === false || $response === 'false' ) {
+			echo ' Unable to fetch ' . $theme . "\n";
+			continue;
+		}
+
+		$response = json_decode( $response );
+		if ( empty( $response->download_link ) ) {
+			echo ' No download link available for theme ' . $theme . "\n";
 			continue;
 		}
 
