@@ -1,8 +1,14 @@
 #!/usr/bin/php
 <?php
-$args = $argv;
-$cmd = array_shift( $args );
-$type = 'all';
+/**
+ * WordPress Theme Directory Slurper.
+ *
+ * @package WordPress Theme Directory Slurper
+ */
+
+$args    = $argv;
+$cmd     = array_shift( $args );
+$type    = 'all';
 $results = array(
 	'success'              => array(),
 	'api_fetch_failed'     => array(),
@@ -12,18 +18,19 @@ $results = array(
 );
 
 $themes = array();
-if ( !empty( $args[0] ) ) {
+if ( ! empty( $args[0] ) ) {
 	$type = $args[0];
 }
 
 switch ( $type ) {
 	case 'all':
 		$directory = 'themes';
-		$download = 'zips/%s.zip';
+		$download  = 'zips/%s.zip';
 		break;
+
 	default:
-		echo $cmd . ": invalid command\r\n";
-		echo 'Usage: php ' . $cmd . " [command]\r\n\r\n";
+		echo $cmd, ": invalid command\r\n";
+		echo 'Usage: php ', $cmd, " [command]\r\n\r\n";
 		echo "Available commands:\r\n";
 		echo "  all - Downloads full theme zips\r\n";
 		die();
@@ -32,19 +39,21 @@ switch ( $type ) {
 echo "Determining most recent SVN revision...\r\n";
 try {
 	$changelog = @file_get_contents( 'https://themes.trac.wordpress.org/log/?format=changelog&stop_rev=HEAD' );
-	if ( !$changelog )
+	if ( ! $changelog ) {
 		throw new Exception( 'Could not fetch the SVN changelog' );
+	}
 	preg_match( '#\[([0-9]+)\]#', $changelog, $matches );
-	if ( !$matches[1] )
+	if ( ! $matches[1] ) {
 		throw new Exception( 'Could not determine most recent revision.' );
+	}
 } catch ( Exception $e ) {
 	die( $e->getMessage() . "\r\n" );
 }
 $svn_last_revision = (int) $matches[1];
-echo "Most recent SVN revision: " . $svn_last_revision . "\r\n";
+echo 'Most recent SVN revision: ', $svn_last_revision, "\r\n";
 if ( file_exists( $directory . '/.last-revision' ) ) {
 	$last_revision = (int) file_get_contents( $directory . '/.last-revision' );
-	echo "Last synced revision: " . $last_revision . "\r\n";
+	echo 'Last synced revision: ', $last_revision, "\r\n";
 } else {
 	$last_revision = false;
 	echo "You have not yet performed a successful sync. Settle in. This will take a while.\r\n";
@@ -55,7 +64,7 @@ $start_time = time();
 if ( $last_revision != $svn_last_revision ) {
 	if ( $last_revision ) {
 		$changelog_url = sprintf( 'https://themes.trac.wordpress.org/log/?verbose=on&mode=follow_copy&format=changelog&rev=%d&limit=%d', $svn_last_revision, $svn_last_revision - $last_revision );
-		$changes = file_get_contents( $changelog_url );
+		$changes       = file_get_contents( $changelog_url );
 		preg_match_all( '#^' . "\t" . '*\* ([^/A-Z ]+)[ /].* \((added|modified|deleted|moved|copied)\)' . "\n" . '#m', $changes, $matches );
 		$themes = array_unique( $matches[1] );
 	} else {
@@ -66,29 +75,29 @@ if ( $last_revision != $svn_last_revision ) {
 
 	foreach ( $themes as $theme ) {
 		$theme = urldecode( $theme );
-		echo "Updating " . $theme . "\n";
+		echo 'Updating ', $theme, "\n";
 
-		$args = ( array(
-			'slug' 	 => $theme ,
-			'fields' => array('sections' => false, 'tags' => false, 'rating' => false, 'downloaded' => false, 'homepage' => false, 'template' => false, 'screenshot_url' => false ),
-		) );
+		$args = array(
+			'slug' 	 => $theme,
+			'fields' => array( 'sections' => false, 'tags' => false, 'rating' => false, 'downloaded' => false, 'homepage' => false, 'template' => false, 'screenshot_url' => false ),
+		);
 		$action = 'theme_information';
 		$data = array(
-			'action' => $action,
+			'action'  => $action,
 			'request' => $args,
 		);
-		
-  		$url = 'https://api.wordpress.org/themes/info/1.1/?' . http_build_query( $data );
+
+		$url      = 'https://api.wordpress.org/themes/info/1.1/?' . http_build_query( $data );
 		$response = file_get_contents( $url );
-		if ( $response === false || $response === 'false' ) {
-			echo ' Unable to fetch ' . $theme . "\n";
+		if ( false === $response || 'false' === $response ) {
+			echo ' Unable to fetch ', $theme, "\n";
 			$results['api_fetch_failed'][ $theme ] = $url;
 			continue;
 		}
 
 		$response = json_decode( $response );
 		if ( empty( $response->download_link ) ) {
-			echo ' No download link available for theme ' . $theme . "\n";
+			echo ' No download link available for theme ', $theme, "\n";
 			$results['api_no_download_link'][ $theme ] = var_export( $response, true );
 			continue;
 		}
@@ -96,12 +105,14 @@ if ( $last_revision != $svn_last_revision ) {
 		$ch   = curl_init();
 		$path = sprintf( $download, $theme );
 		$file = fopen( $path, 'w' );
+
 		/*
-		 * If the downloads are failing with an SSL related error, uncommenting the
-		 * below line and pointing it to a valid certificate bundle on your local machine
-		 * will normally fix this.
+		 * If the downloads are failing with an SSL related error, add the below line
+		 * and pointing it to a valid certificate bundle on your local machine will
+		 * normally fix this.
+		 *
+		 * curl_setopt( $ch, CURLOPT_CAINFO, '/path/to/openssl/cacert.pem' );
 		 */
-		// curl_setopt( $ch, CURLOPT_CAINFO, '/path/to/openssl/cacert.pem' );
 		curl_setopt( $ch, CURLOPT_URL, $response->download_link );
 		curl_setopt( $ch, CURLOPT_FILE, $file );
 		curl_exec( $ch );
@@ -113,26 +124,25 @@ if ( $last_revision != $svn_last_revision ) {
 
 			if ( 'all' === $type ) {
 
-				if ( file_exists( 'themes/' . $theme ) )
-					delete( 'themes/' . $theme );
+				if ( file_exists( 'themes/' . $theme ) ) {
+					delete_theme( 'themes/' . $theme );
+				}
 
 				$zip = new ZipArchive;
 
 				if ( true === $zip->open( $path ) ) {
-
 					$zip->extractTo( 'themes' );
 					$zip->close();
 					$results['success'][] = $theme;
-				}
-				else {
+
+				} else {
 					echo ' ... extract failed';
 					$results['extract_failed'][ $theme ] = $path . ' (file size: ' . filesize( $path ) . ' bytes)';
 				}
 
 				unlink( $path );
 			}
-		}
-		else {
+		} else {
 			echo ' ... download failed.', "\r\n";
 			echo 'Error no: ', $errno, "\r\n";
 			$results['download_failed'][ $theme ] = 'Error:' . $errno . ' for download url : ' . $response->download_link;
@@ -142,18 +152,19 @@ if ( $last_revision != $svn_last_revision ) {
 
 	log_run_results( $results );
 
-	if ( file_put_contents( $directory . '/.last-revision', $svn_last_revision ) )
-		echo "[CLEANUP] Updated $directory/.last-revision to " . $svn_last_revision . "\r\n";
-	else
-		echo "[ERROR] Could not update $directory/.last-revision to " . $svn_last_revision . "\r\n";
+	if ( file_put_contents( $directory . '/.last-revision', $svn_last_revision ) ) {
+		echo "[CLEANUP] Updated $directory/.last-revision to $svn_last_revision \r\n";
+	} else {
+		echo "[ERROR] Could not update $directory/.last-revision to $svn_last_revision \r\n";
+	}
 }
 
 $end_time = time();
-$minutes = ( $end_time - $start_time ) / 60;
-$seconds = ( $end_time - $start_time ) % 60;
+$minutes  = ( ( $end_time - $start_time ) / 60 );
+$seconds  = ( ( $end_time - $start_time ) % 60 );
 
 echo "[SUCCESS] Done updating Themes!\r\n";
-echo "It took " . number_format( $minutes ) . " minute" . ( $minutes == 1 ? '' : 's' ) . " and " . $seconds . " second" . ( $seconds == 1 ? '' : 's' ) . " to update ". count( $results['success'] )  ." theme" . ( count( $results['success'] ) == 1 ? '' : 's') . "\r\n";
+echo 'It took ', number_format( $minutes ), ' minute', ( ( 1 === $minutes ) ? '' : 's' ), ' and ', $seconds, ' second', ( ( 1 === $seconds ) ? '' : 's' ), ' to update ', count( $results['success'] ), ' theme', ( ( 1 === count( $results['success'] ) ) ? '' : 's' ), "\r\n";
 echo "--------------------------------\r\n";
 echo "[RESULT SUMMARY]\r\n";
 echo 'Downloads attempted  : ', count( $themes ), "\r\n";
@@ -168,33 +179,38 @@ echo "[DONE]\r\n";
 /**
  * Delete file/directory recursively. Based on WP_Filesystem_Direct->delete() because GPL.
  *
- * @param string $file
+ * @param string $file File or directory path.
  *
  * @return bool
  */
-function delete( $file ) {
+function delete_theme( $file ) {
 
-	if ( empty( $file ) ) //Some filesystems report this as /, which can cause non-expected recursive deletion of all files in the filesystem.
+	if ( empty( $file ) ) {
+		// Some filesystems report this as /, which can cause non-expected recursive deletion of all files in the filesystem.
 		return false;
+	}
 
-	$file = str_replace( '\\', '/', $file ); //for win32, occasional problems deleting files otherwise
+	$file = str_replace( '\\', '/', $file ); // For win32, occasional problems deleting files otherwise.
 
-	if ( is_file( $file ) )
+	if ( is_file( $file ) ) {
 		return unlink( $file );
+	}
 
-	//At this point it's a folder, and we're in recursive mode
+	// At this point it's a folder, and we're in recursive mode.
 	$filelist = glob( $file . '/*', GLOB_MARK );
 	$retval   = true;
 
 	foreach ( $filelist as $filename ) {
 
-		if ( ! delete( $filename ) )
+		if ( ! delete_theme( $filename ) ) {
 			$retval = false;
+		}
 	}
 
 	// Build in micro-delay for filesystem to catch up with deletions.
-	if ( file_exists( $file ) && usleep( 100 ) && ! rmdir( $file ) )
+	if ( file_exists( $file ) && usleep( 100 ) && ! rmdir( $file ) ) {
 		$retval = false;
+	}
 
 	return $retval;
 }
@@ -203,21 +219,20 @@ function delete( $file ) {
 /**
  * Create a log file for failed slurps.
  *
- * @param array  $results An array of run results.
+ * @param array $results An array of run results.
  */
 function log_run_results( $results ) {
 	$date = date( 'Y-m-d-H.i.s' );
 
 	unset( $results['success'] );
-	
+
 	foreach ( $results as $key => $result ) {
 		if ( count( $result ) > 0 ) {
 			$file_content = var_export( $result, true );
 			$filename     = 'logs/' . $date . '_' . $key . '.log';
 			if ( file_put_contents( $filename, $file_content ) ) {
 				echo "[RESULTS] Created $filename with the names of the themes which encountered a failure of the type: $key.\r\n";
-			}
-			else {
+			} else {
 				echo "[ERROR] Could not create $filename.\r\n";
 			}
 			unset( $file_content, $filename );
