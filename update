@@ -65,8 +65,6 @@ if ( $last_revision != $svn_last_revision ) {
 		$theme = urldecode( $theme );
 		echo "Updating " . $theme . "\n";
 
-		$output = null; $return = null;
-
 		$args = ( array(
 			'slug' 	 => $theme ,
 			'fields' => array('sections' => false, 'tags' => false)
@@ -83,15 +81,38 @@ if ( $last_revision != $svn_last_revision ) {
 			continue;
 		}
 
-		exec( 'wget -q -np -O ' . escapeshellarg( sprintf($download, $theme) ) . ' ' . escapeshellarg( $response->download_link  ) . ' > /dev/null', $output, $return );
+		$ch   = curl_init();
+		$path = sprintf( $download, $theme );
+		$file = fopen( $path, 'w' );
+		/*
+		 * If the downloads are failing with an SSL related error, uncommenting the
+		 * below line and pointing it to a valid certificate bundle on your local machine
+		 * will normally fix this.
+		 */
+		// curl_setopt( $ch, CURLOPT_CAINFO, '/path/to/openssl/cacert.pem' );
+		curl_setopt( $ch, CURLOPT_URL, $response->download_link );
+		curl_setopt( $ch, CURLOPT_FILE, $file );
+		curl_exec( $ch );
+		$errno = curl_errno( $ch );
+		curl_close( $ch );
+		fclose( $file );
 
-		if ( $return === 0 && file_exists( sprintf($download, $theme) ) ) {
-			if ($type === 'all') {
+		if ( 0 === $errno && file_exists( $path ) ) {
+
+			if ( 'all' === $type ) {
+
 				if ( file_exists( 'themes/' . $theme ) )
-					exec( 'rm -rf ' . escapeshellarg( 'themes/' . $theme ) );
+					delete( 'themes/' . $theme );
 
-				exec( 'unzip -o -d themes ' . escapeshellarg( 'zips/' . $theme . '.zip' ) );
-				exec( 'rm -rf ' . escapeshellarg( 'zips/' . $theme . '.zip' ) );
+				$zip = new ZipArchive;
+
+				if ( true === $zip->open( $path ) ) {
+
+					$zip->extractTo( 'themes' );
+					$zip->close();
+				}
+
+				unlink( $path );
 			}
 			$success[] = $theme;
 		} else {
@@ -113,3 +134,37 @@ $seconds = ( $end_time - $start_time ) % 60;
 echo "[SUCCESS] Done updating Themes!\r\n";
 echo "It took " . number_format( $minutes ) . " minute" . ( $minutes == 1 ? '' : 's' ) . " and " . $seconds . " second" . ( $seconds == 1 ? '' : 's' ) . " to update ". count( $success )  ." theme" . ( count( $success ) == 1 ? '' : 's') . "\r\n";
 echo "[DONE]\r\n";
+
+/**
+ * Delete file/directory recursively. Based on WP_Filesystem_Direct->delete() because GPL.
+ *
+ * @param string $file
+ *
+ * @return bool
+ */
+function delete( $file ) {
+
+	if ( empty( $file ) ) //Some filesystems report this as /, which can cause non-expected recursive deletion of all files in the filesystem.
+		return false;
+
+	$file = str_replace( '\\', '/', $file ); //for win32, occasional problems deleting files otherwise
+
+	if ( is_file( $file ) )
+		return unlink( $file );
+
+	//At this point it's a folder, and we're in recursive mode
+	$filelist = glob( $file . '/*', GLOB_MARK );
+	$retval   = true;
+
+	foreach ( $filelist as $filename ) {
+
+		if ( ! delete( $filename ) )
+			$retval = false;
+	}
+
+	// Build in micro-delay for filesystem to catch up with deletions.
+	if ( file_exists( $file ) && usleep( 100 ) && ! rmdir( $file ) )
+		$retval = false;
+
+	return $retval;
+}
