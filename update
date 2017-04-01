@@ -79,7 +79,15 @@ if ( $last_revision != $svn_last_revision ) {
 
 		$args = array(
 			'slug' 	 => $theme,
-			'fields' => array( 'sections' => false, 'tags' => false, 'rating' => false, 'downloaded' => false, 'homepage' => false, 'template' => false, 'screenshot_url' => false ),
+			'fields' => array(
+				'sections'       => false,
+				'tags'           => false,
+				'rating'         => false,
+				'downloaded'     => false,
+				'homepage'       => false,
+				'template'       => false,
+				'screenshot_url' => false,
+			),
 		);
 		$action = 'theme_information';
 		$data = array(
@@ -148,7 +156,8 @@ if ( $last_revision != $svn_last_revision ) {
 			$results['download_failed'][ $theme ] = 'Error:' . $errno . ' for download url : ' . $response->download_link;
 		}
 		echo "\r\n";
-	}
+
+	} // End foreach().
 
 	log_run_results( $results );
 
@@ -157,7 +166,7 @@ if ( $last_revision != $svn_last_revision ) {
 	} else {
 		echo "[ERROR] Could not update $directory/.last-revision to $svn_last_revision \r\n";
 	}
-}
+} // End if().
 
 $end_time = time();
 $minutes  = ( ( $end_time - $start_time ) / 60 );
